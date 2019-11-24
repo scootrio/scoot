@@ -11,15 +11,21 @@ use scoot;
 
 fn main() {
 
-    let compute = scoot::ComputeBuilder::new("my-compute");
+    let compute = scoot::ComputeBuilder::new("my-compute")
+        .vcs("https://github.com/example/code")
+        .build();
 
-    let storage = scoot::StorageBuilder::new("my-storage");
+    let storage = scoot::StorageBuilder::new("my-storage").build();
 
-    let connection = scoot::ConnectionBuilder::new("my-connection");
-    connection.from(&compute).to(&storage);
+    let connection = scoot::ConnectionBuilder::new("my-connection")
+        .from(&compute)
+        .to(&storage)
+        .build();
 
     let project = scoot::Project::new();
-    project.with_compute(compute).with_storage(storage).with_connection(connection);
+        .with(compute)
+        .with(storage)
+        .with(connection);
 
 }
 ```

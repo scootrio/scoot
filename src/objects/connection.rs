@@ -1,52 +1,74 @@
-use crate::{AsObj, ScootObject};
+use crate::{CloneRef, Error, IntoObject, Object, Result};
 use std::rc::Rc;
 
 pub struct ConnectionConfig {
     pub id: String,
-    pub source: Option<ScootObject>,
-    pub target: Option<ScootObject>,
+    pub source: Object,
+    pub target: Object,
 }
 
-impl ConnectionConfig {
-    fn new(id: String) -> ConnectionConfig {
-        ConnectionConfig {
-            id,
-            source: None,
-            target: None,
-        }
-    }
-}
-
-pub type ConnectionConfigRef = Rc<ConnectionConfig>;
+pub type ConnectionRef = Rc<ConnectionConfig>;
 
 pub struct ConnectionBuilder {
-    config: ConnectionConfigRef,
+    id: String,
+    source: Option<Object>,
+    target: Option<Object>,
 }
 
 impl ConnectionBuilder {
     pub fn new(id: String) -> ConnectionBuilder {
         ConnectionBuilder {
-            config: Rc::new(ConnectionConfig::new(id)),
+            id,
+            source: None,
+            target: None,
         }
     }
 
-    pub fn from(&mut self, obj: impl AsObj) -> &mut Self {
-        if let Some(config) = ConnectionConfigRef::get_mut(&mut self.config) {
-            config.source = Some(obj.as_obj());
-        }
+    pub fn from<T: CloneRef<T> + IntoObject>(&mut self, resource: T) -> &mut Self {
+        self.source = Some(resource.clone_ref().into_object());
         self
     }
 
-    pub fn to(&mut self, obj: impl AsObj) -> &mut Self {
-        if let Some(config) = ConnectionConfigRef::get_mut(&mut self.config) {
-            config.target = Some(obj.as_obj());
-        }
+    pub fn to<T: CloneRef<T> + IntoObject>(&mut self, resource: T) -> &mut Self {
+        self.target = Some(resource.clone_ref().into_object());
         self
+    }
+
+    pub fn build(&self) -> Result<ConnectionRef> {
+        let config = ConnectionConfig {
+            id: self.id.clone(),
+            source: match &self.source {
+                Some(s) => s.clone(),
+                None => {
+                    return Err(Error::new(format!(
+                        "missing source in connection {}",
+                        self.id
+                    )))
+                }
+            },
+            target: match &self.target {
+                Some(s) => s.clone(),
+                None => {
+                    return Err(Error::new(format!(
+                        "missing target in connection {}",
+                        self.id
+                    )))
+                }
+            },
+        };
+
+        Ok(ConnectionRef::new(config))
     }
 }
 
-impl AsObj for ConnectionBuilder {
-    fn as_obj(&self) -> ScootObject {
-        ScootObject::Connection(ConnectionConfigRef::clone(&self.config))
+impl CloneRef<ConnectionRef> for ConnectionRef {
+    fn clone_ref(&self) -> ConnectionRef {
+        ConnectionRef::clone(&self)
+    }
+}
+
+impl IntoObject for ConnectionRef {
+    fn into_object(self) -> Object {
+        Object::Connection(self)
     }
 }
